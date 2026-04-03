@@ -8,12 +8,14 @@ export default function AgentPage() {
   const [situation, setSituation] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<{ matched: MatchResult[]; synthesis: string | null } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!situation.trim()) return
     setLoading(true)
     setResults(null)
+    setError(null)
     try {
       const res = await fetch('/api/agent', {
         method: 'POST',
@@ -21,7 +23,13 @@ export default function AgentPage() {
         body: JSON.stringify({ situation })
       })
       const data = await res.json()
-      setResults(data)
+      if (!res.ok) {
+        setError(`API error ${res.status}: ${JSON.stringify(data)}`)
+      } else {
+        setResults(data)
+      }
+    } catch (err: any) {
+      setError(`Network error: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -45,6 +53,12 @@ export default function AgentPage() {
           {loading ? 'Analysing…' : 'Identify Patterns'}
         </button>
       </form>
+
+      {error && (
+        <div style={{ marginTop: 24, background: '#2a0a0a', border: '1px solid #c0392b', borderRadius: 6, padding: 16, color: '#e74c3c', fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {error}
+        </div>
+      )}
 
       {loading && (
         <div className="loading" style={{ marginTop: 40 }}>
