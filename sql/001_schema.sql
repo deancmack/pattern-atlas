@@ -26,7 +26,8 @@ create type complexity_class as enum (
   'configuration',
   'concealment',
   'flow',
-  'foundation'
+  'foundation',
+  'field'
 );
 
 create type relationship_type as enum (
