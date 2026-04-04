@@ -23,6 +23,7 @@ from the situation. Do not summarize the patterns themselves. Focus only on how 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end()
 
+  try {
   const { situation } = req.body
   if (!situation?.trim()) return res.status(400).json({ error: 'situation required' })
 
@@ -30,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { data: patterns, error } = await supabaseAdmin
     .from('patterns')
     .select('*')
-  if (error || !patterns) return res.status(500).json({ error: 'Failed to load patterns' })
+  if (error || !patterns) return res.status(500).json({ error: 'Failed to load patterns', detail: error?.message })
 
   // Build compact library for selection
   const compactLibrary = patterns.map((p: Pattern) =>
@@ -102,4 +103,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })),
     synthesis
   })
+  } catch (err: any) {
+    console.error('Agent API error:', err)
+    res.status(500).json({ error: err?.message || 'Unknown error', stack: err?.stack })
+  }
 }
