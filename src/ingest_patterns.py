@@ -180,7 +180,7 @@ def _upsert(
         batch = rows[start : start + batch_size]
         end   = min(start + batch_size, total)
         try:
-            sb.table(table).upsert(batch, on_conflict=on_conflict).execute()
+            sb.table(table).upsert(batch, on_conflict=on_conflict, ignore_duplicates=False).execute()
             success += len(batch)
             print(f"  ✓  [{table}] rows {start + 1}–{end} / {total}")
         except Exception as exc:
