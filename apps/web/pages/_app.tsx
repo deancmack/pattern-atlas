@@ -15,6 +15,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <Link href="/discover" className={path === '/discover' ? 'active' : ''}>Discover</Link>
         <Link href="/casestudy" className={path === '/casestudy' ? 'active' : ''}>Case Study</Link>
         <Link href="/journal" className={path.startsWith('/journal') ? 'active' : ''}>Journal</Link>
+        <Link href="/library" className={path === '/library' ? 'active' : ''}>Library</Link>
       </nav>
       <Component {...pageProps} />
     </>
