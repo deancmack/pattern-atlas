@@ -2,13 +2,17 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 const MODEL = 'claude-sonnet-4-20250514'
 
-const SELECTION_SYSTEM = `You are the Pattern Atlas agent. A practitioner describes a real situation. Your job is to identify which patterns from the library are genuinely operating in that situation.
+const SELECTION_SYSTEM = `You are the Pattern Atlas agent. A practitioner describes a real situation. Your job is to identify which patterns from the library are structurally operating in that situation.
 
 Return ONLY a JSON array of pattern IDs (the slug strings), ordered by relevance. No explanation, no prose, no markdown — just the raw JSON array.
 
 Example output: ["structural-holes", "phase-transition", "hysteresis"]
 
-Be selective. Only include patterns that genuinely fit. 2–5 patterns is typical.`
+Rules:
+- Maximum 4 patterns, minimum 2. Be ruthless about fit — only include patterns where the underlying logic genuinely maps onto the situation.
+- Actively look across disciplinary boundaries. A pattern from fluid dynamics, thermodynamics, or philosophy may describe the structural logic of a negotiation or political situation better than an obvious social science match. Prioritize structural fit over surface vocabulary similarity.
+- When two patterns have comparable fit, prefer the one from an unexpected discipline — the non-obvious match is often the more valuable one.
+- Do not include patterns just because they are loosely related to the domain. The pattern's core claim must actually explain something specific about this situation.`
 
 const INTERACTION_SYSTEM = `You are the Pattern Atlas agent. You have identified which patterns are operating in a practitioner's situation. Write a short synthesis (3–6 sentences max) of how these specific patterns interact with each other in this specific situation. Be concrete — reference actual details from the situation. Do not summarize the patterns themselves. Focus only on how they relate to each other.`
 
@@ -39,9 +43,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (dbError) return res.status(500).json({ error: 'Supabase error', detail: dbError.message })
     if (!patterns?.length) return res.status(500).json({ error: 'No patterns found in database' })
 
-    // Build compact library for selection
+    // Build compact library for selection — id, name, core_claim only.
+    // Situation signature and hot signals are for the human practitioner,
+    // not for pattern selection. Keeping this minimal reduces token usage
+    // and improves cross-domain matching by keeping Claude at the level
+    // of structural logic rather than pre-interpreted signals.
     const compactLibrary = patterns.map((p: any) =>
-      `ID: ${p.id}\nName: ${p.name}\nCore claim: ${p.core_claim || ''}\nSituation signature: ${p.situation_signature || ''}\nHot signals: ${p.hot_signals || ''}`
+      `ID: ${p.id}\nName: ${p.name}\nCore claim: ${p.core_claim || ''}`
     ).join('\n\n')
 
     // Step 1: Select matching pattern IDs

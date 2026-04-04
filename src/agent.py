@@ -37,7 +37,7 @@ MODEL = "claude-sonnet-4-20250514"
 
 SELECTION_SYSTEM = """\
 You are the Pattern Atlas agent. A practitioner describes a real situation. \
-Your job is to identify which patterns from the library are genuinely operating \
+Your job is to identify which patterns from the library are structurally operating \
 in that situation.
 
 Return ONLY a JSON array of pattern IDs (the slug strings), ordered by relevance. \
@@ -45,8 +45,17 @@ No explanation, no prose, no markdown — just the raw JSON array.
 
 Example output: ["structural-holes", "phase-transition", "hysteresis"]
 
-Be selective. Only include patterns that genuinely fit. 2–5 patterns is typical. \
-Do not include patterns just to seem comprehensive.
+Rules:
+- Maximum 4 patterns, minimum 2. Be ruthless — only include patterns where the \
+underlying logic genuinely maps onto the situation.
+- Actively look across disciplinary boundaries. A pattern from fluid dynamics, \
+thermodynamics, or philosophy may describe the structural logic of a negotiation \
+or political situation better than an obvious social science match. Prioritize \
+structural fit over surface vocabulary similarity.
+- When two patterns have comparable fit, prefer the one from an unexpected \
+discipline — the non-obvious match is often the more valuable one.
+- Do not include patterns just because they are loosely related to the domain. \
+The pattern's core claim must actually explain something specific about this situation.
 """
 
 INTERACTION_SYSTEM = """\
@@ -81,14 +90,15 @@ def get_patterns_by_ids(all_patterns: list[dict], ids: list[str]) -> list[dict]:
 
 
 def compact_for_selection(patterns: list[dict]) -> str:
-    """Compact representation for the selection step — just enough to match."""
+    """Compact representation for selection — id, name, core_claim only.
+    Situation signature and hot signals are for the human practitioner, not for
+    Claude's pattern selection. Keeping this minimal cuts token usage and improves
+    cross-domain matching by keeping Claude at the level of structural logic."""
     lines = []
     for p in patterns:
         lines.append(f"ID: {p['id']}")
         lines.append(f"Name: {p['name']}")
         lines.append(f"Core claim: {p.get('core_claim', '')}")
-        lines.append(f"Situation signature: {p.get('situation_signature', '')}")
-        lines.append(f"Hot signals: {p.get('hot_signals', '')}")
         lines.append("")
     return "\n".join(lines)
 
