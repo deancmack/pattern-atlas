@@ -4,15 +4,27 @@ const MODEL = 'claude-sonnet-4-20250514'
 
 const SELECTION_SYSTEM = `You are the Pattern Atlas agent. A practitioner describes a real situation. Your job is to identify which patterns from the library are structurally operating in that situation.
 
-Return ONLY a JSON array of pattern IDs (the slug strings), ordered by relevance. No explanation, no prose, no markdown — just the raw JSON array.
+Return ONLY a JSON object with exactly these keys:
+{
+  "core": ["id1", "id2", "id3"],
+  "secondary": ["id4", "id5"],
+  "wildcard": "id6"
+}
 
-Example output: ["structural-holes", "phase-transition", "hysteresis"]
+No explanation, no prose, no markdown — just the raw JSON object.
 
 Rules:
-- Maximum 4 patterns, minimum 2. Be ruthless about fit — only include patterns where the underlying logic genuinely maps onto the situation.
-- Actively look across disciplinary boundaries. A pattern from fluid dynamics, thermodynamics, or philosophy may describe the structural logic of a negotiation or political situation better than an obvious social science match. Prioritize structural fit over surface vocabulary similarity.
-- When two patterns have comparable fit, prefer the one from an unexpected discipline — the non-obvious match is often the more valuable one.
-- Do not include patterns just because they are loosely related to the domain. The pattern's core claim must actually explain something specific about this situation.`
+- Core patterns: 3 to 5 strongest matches. These should be the most grounded, best-evidenced, and most structurally central patterns in the situation.
+- Secondary patterns: 2 to 4 additional useful matches. These should deepen, support, or extend the analysis, but should be less central than the core patterns.
+- Wildcard: exactly 1 pattern. This should be a non-obvious but genuinely illuminating cross-domain match — interesting because it reveals something real, not because it sounds clever.
+- Total patterns should usually be between 6 and 10.
+- Prioritize fit first, then diversity, then surprise.
+- Do not sacrifice strong obvious matches in order to include more creative ones.
+- Actively look across disciplinary boundaries, but only include unexpected patterns when their core logic genuinely maps onto the situation.
+- Do not include patterns just because they are loosely related to the domain. The pattern's core claim must actually explain something specific about this situation.
+- Order each array by relevance, strongest first.
+- Do not repeat a pattern across categories.
+- The wildcard must not duplicate the logic of the core patterns too closely.`
 
 const INTERACTION_SYSTEM = `You are the Pattern Atlas agent. You have identified which patterns are operating in a practitioner's situation. Write a short synthesis (3–6 sentences max) of how these specific patterns interact with each other in this specific situation. Be concrete — reference actual details from the situation. Do not summarize the patterns themselves. Focus only on how they relate to each other.`
 
@@ -61,10 +73,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
 
     let matchedIds: string[] = []
+    let selectionTiers: { core: string[]; secondary: string[]; wildcard: string | null } = {
+      core: [],
+      secondary: [],
+      wildcard: null,
+    }
     try {
       let raw = (selectionResponse.content[0] as any).text.trim()
       if (raw.startsWith('```')) raw = raw.split('```')[1].replace(/^json/, '')
-      matchedIds = JSON.parse(raw)
+      const parsed = JSON.parse(raw)
+
+      selectionTiers = {
+        core: Array.isArray(parsed.core) ? parsed.core : [],
+        secondary: Array.isArray(parsed.secondary) ? parsed.secondary : [],
+        wildcard: typeof parsed.wildcard === 'string' ? parsed.wildcard : null,
+      }
+
+      const seen = new Set<string>()
+      matchedIds = [
+        ...selectionTiers.core,
+        ...selectionTiers.secondary,
+        ...(selectionTiers.wildcard ? [selectionTiers.wildcard] : []),
+      ].filter((id: string) => {
+        if (!id || seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
     } catch {
       return res.status(500).json({ error: 'Pattern selection parse failed' })
     }
@@ -102,7 +136,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     res.json({
-      matched: matchedPatterns.map((p: any) => ({ pattern: p, reason: matchReasons[p.id] || '' })),
+      tiers: selectionTiers,
+      matched: matchedPatterns.map((p: any) => ({
+        pattern: p,
+        reason: matchReasons[p.id] || '',
+        tier: selectionTiers.core.includes(p.id)
+          ? 'core'
+          : selectionTiers.secondary.includes(p.id)
+            ? 'secondary'
+            : selectionTiers.wildcard === p.id
+              ? 'wildcard'
+              : null,
+      })),
       synthesis
     })
 
